@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin · AccessLog</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand" style="margin-bottom:22px">
+        <div class="logo">AL</div>
+        <div>
+          <h1>AccessLog</h1>
+          <p>Admin</p>
+        </div>
+      </div>
+      <nav class="nav">
+        <a href="dashboard.html">Overview</a>
+        <a class="active" href="admin.html">Sign-in board</a>
+      </nav>
+      <div class="spacer"></div>
+      <button class="btn btn-ghost" id="logout" style="margin-top:0">Sign out</button>
+    </aside>
+    <main class="main">
+      <div class="topbar">
+        <div>
+          <h2>Who signed in</h2>
+          <p class="who">Live activity from this browser store — who, what, where, when.</p>
+        </div>
+        <button class="btn btn-ghost" id="clear" style="width:auto;margin:0">Clear logs</button>
+      </div>
+      <div class="stats">
+        <div class="stat"><div class="k">Accounts</div><div class="v" id="usersN">0</div></div>
+        <div class="stat"><div class="k">Events</div><div class="v" id="eventsN">0</div></div>
+        <div class="stat"><div class="k">Successful logins</div><div class="v" id="okN">0</div></div>
+        <div class="stat"><div class="k">Failed attempts</div><div class="v" id="failN">0</div></div>
+      </div>
+
+      <div class="panel" style="margin-bottom:18px">
+        <div class="panel-h"><h3>Accounts</h3></div>
+        <div id="usersWrap"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h">
+          <h3>Activity log</h3>
+          <input id="filter" placeholder="Filter by email or city…" style="width:220px;padding:8px 10px;font-size:13px" />
+        </div>
+        <div id="logsWrap"></div>
+      </div>
+    </main>
+  </div>
+  <script src="js/auth.js"></script>
+  <script>
+    const session = requireAuth("admin");
+    if (!session) throw new Error("redirect");
+    document.getElementById("logout").onclick = () => { clearSession(); location.href = "index.html"; };
+    document.getElementById("clear").onclick = () => {
+      if (confirm("Clear all activity logs on this device?")) {
+        saveLogs([]);
+        render();
+      }
+    };
+
+    function render() {
+      const users = loadUsers();
+      const logs = loadLogs();
+      document.getElementById("usersN").textContent = users.length;
+      document.getElementById("eventsN").textContent = logs.length;
+      document.getElementById("okN").textContent = logs.filter(l => l.action === "login" && l.success).length;
+      document.getElementById("failN").textContent = logs.filter(l => l.action === "login" && !l.success).length;
+
+      document.getElementById("usersWrap").innerHTML = `
+        <table>
+          <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Created</th></tr></thead>
+          <tbody>
+            ${users.map(u => `<tr>
+              <td>${u.name}</td>
+              <td class="mono">${u.email}</td>
+              <td><span class="pill ${u.role === "admin" ? "admin" : "ok"}">${u.role}</span></td>
+              <td>${fmt(u.createdAt)}</td>
+            </tr>`).join("")}
+          </tbody>
+        </table>`;
+
+      const q = (document.getElementById("filter").value || "").toLowerCase();
+      const filtered = logs.filter(l =>
+        !q || (l.email || "").includes(q) || (l.city || "").toLowerCase().includes(q) || (l.country || "").toLowerCase().includes(q)
+      );
+      document.getElementById("logsWrap").innerHTML = filtered.length ? `
+        <table>
+          <thead><tr><th>When</th><th>Who</th><th>What</th><th>Status</th><th>Where</th><th>IP</th></tr></thead>
+          <tbody>
+            ${filtered.slice(0, 80).map(l => `<tr>
+              <td>${fmt(l.ts)}</td>
+              <td>${l.name || "—"}<br><span class="mono">${l.email}</span></td>
+              <td>${(l.action || "").replace("_", " ")}</td>
+              <td><span class="pill ${l.success ? "ok" : "fail"}">${l.success ? "ok" : "failed"}</span></td>
+              <td>${[l.city, l.region, l.country].filter(Boolean).join(", ") || "—"}</td>
+              <td class="mono">${l.ip || "—"}</td>
+            </tr>`).join("")}
+          </tbody>
+        </table>` : `<div class="empty">No matching events.</div>`;
+    }
+
+    document.getElementById("filter").addEventListener("input", render);
+    render();
+  </script>
+</body>
+</html>

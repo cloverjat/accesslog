@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dashboard · AccessLog</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand" style="margin-bottom:22px">
+        <div class="logo">AL</div>
+        <div>
+          <h1>AccessLog</h1>
+          <p>Member</p>
+        </div>
+      </div>
+      <nav class="nav">
+        <a class="active" href="dashboard.html">Overview</a>
+        <a href="admin.html" id="adminLink" style="display:none">Admin board</a>
+      </nav>
+      <div class="spacer"></div>
+      <button class="btn btn-ghost" id="logout" style="margin-top:0">Sign out</button>
+    </aside>
+    <main class="main">
+      <div class="topbar">
+        <div>
+          <h2 id="hello">Dashboard</h2>
+          <p class="who" id="who"></p>
+        </div>
+      </div>
+      <div class="stats">
+        <div class="stat"><div class="k">Your role</div><div class="v" id="role">—</div></div>
+        <div class="stat"><div class="k">Your logins</div><div class="v" id="count">0</div></div>
+        <div class="stat"><div class="k">Last location</div><div class="v" id="loc" style="font-size:16px">—</div></div>
+        <div class="stat"><div class="k">Account</div><div class="v" id="since" style="font-size:16px">—</div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-h"><h3>Your recent activity</h3></div>
+        <div id="tablewrap"></div>
+      </div>
+    </main>
+  </div>
+  <script src="js/auth.js"></script>
+  <script>
+    const session = requireAuth();
+    if (!session) throw new Error("redirect");
+    document.getElementById("hello").textContent = "Hello, " + session.name.split(" ")[0];
+    document.getElementById("who").textContent = session.email;
+    document.getElementById("role").textContent = session.role;
+    if (session.role === "admin") document.getElementById("adminLink").style.display = "flex";
+    document.getElementById("logout").onclick = () => { clearSession(); location.href = "index.html"; };
+
+    const users = loadUsers();
+    const me = users.find(u => u.id === session.id);
+    if (me) document.getElementById("since").textContent = new Date(me.createdAt).toLocaleDateString();
+
+    const mine = loadLogs().filter(l => l.email === session.email);
+    document.getElementById("count").textContent = mine.filter(l => l.action === "login" && l.success).length;
+    const last = mine[0];
+    document.getElementById("loc").textContent = last ? (last.city + ", " + last.country) : "—";
+
+    const rows = mine.slice(0, 20).map(l => `
+      <tr>
+        <td>${fmt(l.ts)}</td>
+        <td>${l.action.replace("_", " ")}</td>
+        <td><span class="pill ${l.success ? "ok" : "fail"}">${l.success ? "ok" : "failed"}</span></td>
+        <td>${l.city || "—"}, ${l.country || "—"}</td>
+        <td class="mono">${l.ip || "—"}</td>
+      </tr>`).join("");
+    document.getElementById("tablewrap").innerHTML = mine.length ? `
+      <table>
+        <thead><tr><th>When</th><th>What</th><th>Status</th><th>Where</th><th>IP</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>` : `<div class="empty">No activity yet.</div>`;
+  </script>
+</body>
+</html>
