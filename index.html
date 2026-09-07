@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sign in · AccessLog</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="wrap">
+    <div class="auth-card">
+      <div class="brand">
+        <div class="logo">AL</div>
+        <div>
+          <h1>AccessLog</h1>
+          <p>See who signed in, from where</p>
+        </div>
+      </div>
+      <h2>Welcome back</h2>
+      <p class="lede">Sign in to your workspace. Admin can review login activity.</p>
+      <div id="alert" class="alert"></div>
+      <form id="form">
+        <label for="email">Email</label>
+        <input id="email" type="email" autocomplete="username" required placeholder="you@company.com" />
+        <label for="password">Password</label>
+        <input id="password" type="password" autocomplete="current-password" required />
+        <div class="row-between">
+          <span></span>
+          <a href="forgot.html" style="font-size:13px">Forgot password?</a>
+        </div>
+        <button class="btn" type="submit" id="submit">Sign in</button>
+      </form>
+      <p class="foot">No account? <a href="register.html">Create one</a></p>
+      <div class="demo-note">
+        Demo admin: <code>admin@accesslog.app</code> / <code>Admin123!</code><br />
+        This prototype stores data in your browser. A production version uses a real database, hashed passwords on the server, and email delivery.
+      </div>
+    </div>
+  </div>
+  <script src="js/auth.js"></script>
+  <script>
+    if (getSession()) location.href = "dashboard.html";
+
+    document.getElementById("form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const alert = document.getElementById("alert");
+      const btn = document.getElementById("submit");
+      const email = document.getElementById("email").value.trim().toLowerCase();
+      const password = document.getElementById("password").value;
+      btn.disabled = true;
+      btn.textContent = "Checking…";
+      await ensureSeed();
+      const users = loadUsers();
+      const user = users.find(u => u.email === email);
+      const hash = await sha256(password);
+      const geo = await lookupGeo();
+      const ok = user && user.passwordHash === hash;
+      addLog({
+        email,
+        name: user ? user.name : "Unknown",
+        success: !!ok,
+        action: "login",
+        ip: geo.ip,
+        city: geo.city,
+        region: geo.region,
+        country: geo.country,
+        isp: geo.isp,
+        userAgent: navigator.userAgent
+      });
+      if (!ok) {
+        showAlert(alert, "error", "Invalid email or password.");
+        btn.disabled = false;
+        btn.textContent = "Sign in";
+        return;
+      }
+      setSession(user);
+      location.href = user.role === "admin" ? "admin.html" : "dashboard.html";
+    });
+  </script>
+</body>
+</html>
