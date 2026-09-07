@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Create account · AccessLog</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="wrap">
+    <div class="auth-card">
+      <div class="brand">
+        <div class="logo">AL</div>
+        <div>
+          <h1>AccessLog</h1>
+          <p>Create a workspace account</p>
+        </div>
+      </div>
+      <h2>Create account</h2>
+      <p class="lede">Register to sign in. New accounts start as members.</p>
+      <div id="alert" class="alert"></div>
+      <form id="form">
+        <label for="name">Full name</label>
+        <input id="name" required placeholder="Ada Okonkwo" />
+        <label for="email">Email</label>
+        <input id="email" type="email" required placeholder="you@company.com" />
+        <label for="password">Password</label>
+        <input id="password" type="password" minlength="8" required placeholder="At least 8 characters" />
+        <button class="btn" type="submit" id="submit">Create account</button>
+      </form>
+      <p class="foot">Already have an account? <a href="index.html">Sign in</a></p>
+    </div>
+  </div>
+  <script src="js/auth.js"></script>
+  <script>
+    document.getElementById("form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const alert = document.getElementById("alert");
+      const btn = document.getElementById("submit");
+      const name = document.getElementById("name").value.trim();
+      const email = document.getElementById("email").value.trim().toLowerCase();
+      const password = document.getElementById("password").value;
+      if (password.length < 8) {
+        showAlert(alert, "error", "Password must be at least 8 characters.");
+        return;
+      }
+      btn.disabled = true;
+      await ensureSeed();
+      const users = loadUsers();
+      if (users.some(u => u.email === email)) {
+        showAlert(alert, "error", "An account with that email already exists.");
+        btn.disabled = false;
+        return;
+      }
+      const user = {
+        id: "u_" + Math.random().toString(36).slice(2, 10),
+        name, email,
+        passwordHash: await sha256(password),
+        role: "member",
+        createdAt: new Date().toISOString()
+      };
+      users.push(user);
+      saveUsers(users);
+      const geo = await lookupGeo();
+      addLog({
+        email, name, success: true, action: "register",
+        ip: geo.ip, city: geo.city, region: geo.region, country: geo.country,
+        isp: geo.isp, userAgent: navigator.userAgent
+      });
+      setSession(user);
+      location.href = "dashboard.html";
+    });
+  </script>
+</body>
+</html>

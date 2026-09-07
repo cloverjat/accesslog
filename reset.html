@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Reset password · AccessLog</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="wrap">
+    <div class="auth-card">
+      <div class="brand">
+        <div class="logo">AL</div>
+        <div>
+          <h1>AccessLog</h1>
+          <p>Choose a new password</p>
+        </div>
+      </div>
+      <h2>Reset password</h2>
+      <p class="lede">Set a new password for your account.</p>
+      <div id="alert" class="alert"></div>
+      <form id="form">
+        <label for="password">New password</label>
+        <input id="password" type="password" minlength="8" required />
+        <label for="confirm">Confirm password</label>
+        <input id="confirm" type="password" minlength="8" required />
+        <button class="btn" type="submit">Update password</button>
+      </form>
+      <p class="foot"><a href="index.html">Back to sign in</a></p>
+    </div>
+  </div>
+  <script src="js/auth.js"></script>
+  <script>
+    const token = new URLSearchParams(location.search).get("token") || "";
+    const resets = loadResets();
+    const rec = resets[token];
+    if (!token || !rec || rec.exp < Date.now()) {
+      showAlert(document.getElementById("alert"), "error", "This reset link is invalid or expired.");
+      document.getElementById("form").style.display = "none";
+    }
+
+    document.getElementById("form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const alert = document.getElementById("alert");
+      const password = document.getElementById("password").value;
+      const confirm = document.getElementById("confirm").value;
+      if (password !== confirm) {
+        showAlert(alert, "error", "Passwords do not match.");
+        return;
+      }
+      if (password.length < 8) {
+        showAlert(alert, "error", "Password must be at least 8 characters.");
+        return;
+      }
+      const latest = loadResets();
+      const r = latest[token];
+      if (!r || r.exp < Date.now()) {
+        showAlert(alert, "error", "This reset link is invalid or expired.");
+        return;
+      }
+      const users = loadUsers();
+      const idx = users.findIndex(u => u.email === r.email);
+      if (idx === -1) {
+        showAlert(alert, "error", "Account not found.");
+        return;
+      }
+      users[idx].passwordHash = await sha256(password);
+      saveUsers(users);
+      delete latest[token];
+      saveResets(latest);
+      const geo = await lookupGeo();
+      addLog({
+        email: r.email, name: users[idx].name, success: true, action: "password_reset",
+        ip: geo.ip, city: geo.city, region: geo.region, country: geo.country,
+        isp: geo.isp, userAgent: navigator.userAgent
+      });
+      showAlert(alert, "ok", "Password updated. You can sign in now.");
+      setTimeout(() => location.href = "index.html", 1200);
+    });
+  </script>
+</body>
+</html>
